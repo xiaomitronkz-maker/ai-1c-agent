@@ -101,3 +101,57 @@ def ai_chat(req: AIRequest):
         }
 
     return {"answer": "Команда не распознана"}
+
+from fastapi.responses import HTMLResponse
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+    <head>
+        <title>AI 1C Assistant</title>
+        <style>
+        body {font-family: Arial; background:#111; color:white; padding:40px}
+        input {padding:10px; width:400px}
+        button {padding:10px}
+        #response {margin-top:20px}
+        </style>
+    </head>
+    <body>
+
+    <h1>AI Assistant 1C</h1>
+
+    <input id="msg" placeholder="Например: покажи продажи">
+    <button onclick="send()">Отправить</button>
+
+    <pre id="response"></pre>
+
+    <script>
+
+    async function send(){
+
+        let text = document.getElementById("msg").value
+
+        let r = await fetch("/ai",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                text:text
+            })
+        })
+
+        let data = await r.json()
+
+        document.getElementById("response").innerText =
+        JSON.stringify(data,null,2)
+
+    }
+
+    </script>
+
+    </body>
+    </html>
+    """
