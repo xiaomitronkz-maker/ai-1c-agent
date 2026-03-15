@@ -52,3 +52,23 @@ def sales():
         "count": len(data["value"]),
         "example": data["value"][0]
     }
+
+@app.get("/ai/sales")
+def ai_sales():
+
+    data = get_sales()
+
+    docs = data["value"]
+
+    total = len(docs)
+
+    sum_sales = 0
+
+    for d in docs:
+        if "СуммаДокумента" in d:
+            sum_sales += d["СуммаДокумента"]
+
+    return {
+        "documents": total,
+        "total_sales": sum_sales
+    }
