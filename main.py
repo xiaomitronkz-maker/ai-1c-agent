@@ -1,3 +1,7 @@
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 import requests
 from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI
@@ -82,27 +86,40 @@ class AIRequest(BaseModel):
 @app.post("/ai")
 def ai_chat(req: AIRequest):
 
-    text = req.text.lower()
+    text = req.text
 
-    if "продажи" in text:
+    prompt = f"""
+    Пользователь спрашивает про бизнес.
+
+    Запрос: {text}
+
+    Возможные команды:
+    продажи
+    """
+
+    completion = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role":"system","content":"Ты ассистент 1С"},
+            {"role":"user","content":prompt}
+        ]
+    )
+
+    answer = completion.choices[0].message.content
+
+    if "продажи" in answer:
 
         data = get_sales()
         docs = data["value"]
 
         total = len(docs)
-        sum_sales = 0
-
-        for d in docs:
-            if "СуммаДокумента" in d:
-                sum_sales += d["СуммаДокумента"]
+        sum_sales = sum(d.get("СуммаДокумента",0) for d in docs)
 
         return {
-            "answer": f"Продажи: {total} документов. Общая сумма: {sum_sales}"
+            "answer": f"Продажи: {total}. Сумма: {sum_sales}"
         }
 
-    return {"answer": "Команда не распознана"}
-
-from fastapi.responses import HTMLResponse
+    return {"answer": answer}
 
 
 @app.get("/", response_class=HTMLResponse)
