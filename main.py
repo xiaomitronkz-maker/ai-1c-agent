@@ -1,3 +1,5 @@
+import requests
+from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -29,3 +31,22 @@ from requests.auth import HTTPBasicAuth
 ODATA_URL = "https://1cfresh.kz/a/ea8/239226/odata/standard.odata/"
 ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
+
+def get_sales():
+    url = ODATA_URL + "Document_РеализацияТоваровУслуг"
+
+    response = requests.get(
+        url,
+        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
+    )
+
+    return response.json()
+
+@app.get("/sales")
+def sales():
+
+    data = get_sales()
+
+    return {
+        "count": len(data["value"])
+    }
