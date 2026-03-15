@@ -23,3 +23,9 @@ def analyze_sales(data: dict):
     }
 
     return result
+import requests
+from requests.auth import HTTPBasicAuth
+
+ODATA_URL = "https://1cfresh.kz/a/ea8/239226/odata/standard.odata/"
+ODATA_USER = "odata.user"
+ODATA_PASS = "ТВОЙ_ПАРОЛЬ"
