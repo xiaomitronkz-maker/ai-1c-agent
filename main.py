@@ -34,21 +34,21 @@ ODATA_PASS = "Nji9ol.*"
 
 def get_sales():
 
-    url = ODATA_URL + "Document_РеализацияТоваровУслуг"
+    url = ODATA_URL + "Document_РеализацияТоваровУслуг?$format=json"
 
     response = requests.get(
         url,
         auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
     )
 
-    return {
-        "status": response.status_code,
-        "text": response.text[:1000]
-    }
+    return response.json()
 
 @app.get("/sales")
 def sales():
 
     data = get_sales()
 
-    return data
+    return {
+        "count": len(data["value"]),
+        "example": data["value"][0]
+    }
