@@ -51,6 +51,4 @@ def sales():
 
     data = get_sales()
 
-    return {
-        "count": len(data["value"])
-    }
+    return data
