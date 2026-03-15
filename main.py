@@ -33,6 +33,7 @@ ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
 
 def get_sales():
+
     url = ODATA_URL + "Document_РеализацияТоваровУслуг"
 
     response = requests.get(
@@ -40,7 +41,10 @@ def get_sales():
         auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
     )
 
-    return response.json()
+    return {
+        "status": response.status_code,
+        "text": response.text[:1000]
+    }
 
 @app.get("/sales")
 def sales():
