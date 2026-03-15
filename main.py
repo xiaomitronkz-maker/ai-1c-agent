@@ -1,41 +1,27 @@
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+import requests
+from requests.auth import HTTPBasicAuth
 from openai import OpenAI
 import os
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-import requests
-from fastapi.responses import HTMLResponse
-from requests.auth import HTTPBasicAuth
-from fastapi import FastAPI
-
 app = FastAPI()
 
-@app.get("/test")
-def test():
-    return {"status": "AI server working"}
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-@app.post("/analyze_sales")
-def analyze_sales(data: dict):
-
-    revenue = data.get("revenue", 0)
-    previous = data.get("previous_revenue", 0)
-
-    change = 0
-    if previous > 0:
-        change = (revenue - previous) / previous * 100
-
-    result = {
-        "summary": f"Изменение выручки: {round(change,2)}%",
-        "risk": "Падение продаж" if change < -10 else "Риски не обнаружены",
-        "recommendation": "Проверьте динамику клиентов"
-    }
-
-    return result
-import requests
-from requests.auth import HTTPBasicAuth
+# ===============================
+# 1C ODATA SETTINGS
+# ===============================
 
 ODATA_URL = "https://1cfresh.kz/a/ea8/239226/odata/standard.odata/"
 ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
+
+
+# ===============================
+# GET SALES FROM 1C
+# ===============================
 
 def get_sales():
 
@@ -48,80 +34,120 @@ def get_sales():
 
     return response.json()
 
+
+# ===============================
+# TEST
+# ===============================
+
+@app.get("/test")
+def test():
+    return {"status": "AI server working"}
+
+
+# ===============================
+# SALES RAW
+# ===============================
+
 @app.get("/sales")
 def sales():
 
     data = get_sales()
+    docs = data.get("value", [])
 
     return {
-        "count": len(data["value"]),
-        "example": data["value"][0]
+        "count": len(docs),
+        "example": docs[0] if docs else None
     }
+
+
+# ===============================
+# SALES ANALYTICS
+# ===============================
 
 @app.get("/ai/sales")
 def ai_sales():
 
     data = get_sales()
-
-    docs = data["value"]
+    docs = data.get("value", [])
 
     total = len(docs)
-
-    sum_sales = 0
-
-    for d in docs:
-        if "СуммаДокумента" in d:
-            sum_sales += d["СуммаДокумента"]
+    sum_sales = sum(d.get("СуммаДокумента", 0) for d in docs)
 
     return {
         "documents": total,
         "total_sales": sum_sales
     }
 
-from pydantic import BaseModel
+
+# ===============================
+# AI REQUEST MODEL
+# ===============================
 
 class AIRequest(BaseModel):
     text: str
 
 
+# ===============================
+# AI CHAT
+# ===============================
+
 @app.post("/ai")
 def ai_chat(req: AIRequest):
 
-    text = req.text
+    text = req.text.lower()
 
-    prompt = f"""
-    Пользователь спрашивает про бизнес.
-
-    Запрос: {text}
-
-    Возможные команды:
-    продажи
-    """
-
-    completion = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role":"system","content":"Ты ассистент 1С"},
-            {"role":"user","content":prompt}
-        ]
-    )
-
-    answer = completion.choices[0].message.content
-
-    if "продажи" in answer:
+    # ПОСЛЕДНИЕ ПРОДАЖИ
+    if "последние" in text:
 
         data = get_sales()
-        docs = data["value"]
+        docs = data.get("value", [])
+
+        last_docs = docs[-3:]
+
+        result = []
+
+        for d in last_docs:
+
+            result.append({
+                "номер": d.get("Number"),
+                "дата": d.get("Date"),
+                "сумма": d.get("СуммаДокумента")
+            })
+
+        return {
+            "answer": result
+        }
+
+    # ОБЩИЕ ПРОДАЖИ
+    if "продажи" in text:
+
+        data = get_sales()
+        docs = data.get("value", [])
 
         total = len(docs)
-        sum_sales = sum(d.get("СуммаДокумента",0) for d in docs)
+        sum_sales = sum(d.get("СуммаДокумента", 0) for d in docs)
 
         return {
             "answer": f"Продажи: {total}. Сумма: {sum_sales}"
         }
 
+    # OPENAI
+    completion = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "Ты ассистент для анализа бизнеса из 1С"},
+            {"role": "user", "content": text}
+        ]
+    )
+
+    answer = completion.choices[0].message.content
+
     return {"answer": answer}
 
+
+# ===============================
+# WEB INTERFACE
+# ===============================
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -173,25 +199,3 @@ def home():
     </body>
     </html>
     """
-
-if "последние" in text:
-
-    data = get_sales()
-
-    docs = data.get("value", [])
-
-    last_docs = docs[-3:]
-
-    result = []
-
-    for d in last_docs:
-
-        result.append({
-            "номер": d.get("Number"),
-            "дата": d.get("Date"),
-            "сумма": d.get("СуммаДокумента")
-        })
-
-    return {
-        "answer": result
-    }
