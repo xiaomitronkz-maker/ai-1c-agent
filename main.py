@@ -173,3 +173,21 @@ def home():
     </body>
     </html>
     """
+
+if "последние" in text:
+
+    data = get_sales()
+    docs = data["value"][-3:]
+
+    result = []
+
+    for d in docs:
+        result.append({
+            "номер": d.get("Number"),
+            "дата": d.get("Date"),
+            "сумма": d.get("СуммаДокумента")
+        })
+
+    return {
+        "answer": result
+    }
