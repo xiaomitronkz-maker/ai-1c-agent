@@ -72,3 +72,32 @@ def ai_sales():
         "documents": total,
         "total_sales": sum_sales
     }
+
+from pydantic import BaseModel
+
+class AIRequest(BaseModel):
+    text: str
+
+
+@app.post("/ai")
+def ai_chat(req: AIRequest):
+
+    text = req.text.lower()
+
+    if "продажи" in text:
+
+        data = get_sales()
+        docs = data["value"]
+
+        total = len(docs)
+        sum_sales = 0
+
+        for d in docs:
+            if "СуммаДокумента" in d:
+                sum_sales += d["СуммаДокумента"]
+
+        return {
+            "answer": f"Продажи: {total} документов. Общая сумма: {sum_sales}"
+        }
+
+    return {"answer": "Команда не распознана"}
