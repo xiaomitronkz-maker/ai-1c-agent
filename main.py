@@ -177,11 +177,15 @@ def home():
 if "последние" in text:
 
     data = get_sales()
-    docs = data["value"][-3:]
+
+    docs = data.get("value", [])
+
+    last_docs = docs[-3:]
 
     result = []
 
-    for d in docs:
+    for d in last_docs:
+
         result.append({
             "номер": d.get("Number"),
             "дата": d.get("Date"),
