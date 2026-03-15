@@ -96,6 +96,19 @@ def ai_chat(req: AIRequest):
 
     text = req.text.lower()
 
+    if "создай реализацию" in text:
+
+        result = create_sale(
+        customer="Xiaomi",
+        product="iPhone",
+        qty=2,
+        price=650
+    )
+
+    return {
+        "answer": result
+    }
+
     # ПОСЛЕДНИЕ ПРОДАЖИ
     if "последние" in text:
 
@@ -199,3 +212,72 @@ def home():
     </body>
     </html>
     """
+def find_customer(name):
+
+    url = ODATA_URL + f"Catalog_Контрагенты?$filter=contains(Description,'{name}')&$format=json"
+
+    response = requests.get(
+        url,
+        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
+    )
+
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+
+    if data["value"]:
+        return data["value"][0]["Ref_Key"]
+
+    return None
+
+def find_product(name):
+
+    url = ODATA_URL + f"Catalog_Номенклатура?$filter=contains(Description,'{name}')&$format=json"
+
+    response = requests.get(
+        url,
+        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
+    )
+
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+
+    if data["value"]:
+        return data["value"][0]["Ref_Key"]
+
+    return None
+
+def create_sale(customer, product, qty, price):
+
+    customer_id = find_customer(customer)
+    product_id = find_product(product)
+
+    if not customer_id:
+        return {"error": "Клиент не найден"}
+
+    if not product_id:
+        return {"error": "Товар не найден"}
+
+    url = ODATA_URL + "Document_РеализацияТоваровУслуг?$format=json"
+
+    payload = {
+        "Контрагент_Key": customer_id,
+        "Товары": [
+            {
+                "Номенклатура_Key": product_id,
+                "Количество": qty,
+                "Цена": price
+            }
+        ]
+    }
+
+    response = requests.post(
+        url,
+        json=payload,
+        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
+    )
+
+    return response.json()
