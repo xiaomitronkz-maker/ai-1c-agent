@@ -3,6 +3,7 @@ import os
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 import requests
+from fastapi.responses import HTMLResponse
 from requests.auth import HTTPBasicAuth
 from fastapi import FastAPI
 
