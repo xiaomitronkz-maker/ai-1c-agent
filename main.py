@@ -20,7 +20,7 @@ ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
 
 # ===============================
-# SALES
+# GET SALES
 # ===============================
 
 def get_sales():
@@ -211,7 +211,7 @@ TOOLS = [
 
 
 # ===============================
-# AI REQUEST
+# AI REQUEST MODEL
 # ===============================
 
 class AIRequest(BaseModel):
@@ -230,7 +230,26 @@ def ai_chat(req: AIRequest):
     completion = client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
-            {"role": "system", "content": "Ты AI агент для управления системой 1С"},
+            {
+                "role": "system",
+                "content": """
+Ты AI агент для управления системой 1С.
+
+Если пользователь просит:
+- создать реализацию
+- продать товар
+- сделать продажу
+
+ты должен вызвать функцию create_sale.
+
+Параметры:
+
+customer — имя клиента  
+product — товар  
+qty — количество  
+price — цена
+"""
+            },
             {"role": "user", "content": text}
         ],
         tools=TOOLS,
@@ -264,25 +283,6 @@ def ai_chat(req: AIRequest):
 
 
 # ===============================
-# SALES ANALYTICS
-# ===============================
-
-@app.get("/ai/sales")
-def ai_sales():
-
-    data = get_sales()
-    docs = data.get("value", [])
-
-    total = len(docs)
-    sum_sales = sum(d.get("СуммаДокумента", 0) for d in docs)
-
-    return {
-        "documents": total,
-        "total_sales": sum_sales
-    }
-
-
-# ===============================
 # TEST
 # ===============================
 
@@ -298,50 +298,50 @@ def test():
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
-    <html>
-    <head>
-        <title>AI 1C Assistant</title>
-        <style>
-        body {font-family: Arial; background:#111; color:white; padding:40px}
-        input {padding:10px; width:400px}
-        button {padding:10px}
-        #response {margin-top:20px}
-        </style>
-    </head>
-    <body>
+<html>
+<head>
+<title>AI 1C Assistant</title>
+<style>
+body {font-family: Arial; background:#111; color:white; padding:40px}
+input {padding:10px; width:400px}
+button {padding:10px}
+#response {margin-top:20px}
+</style>
+</head>
+<body>
 
-    <h1>AI Assistant 1C</h1>
+<h1>AI Assistant 1C</h1>
 
-    <input id="msg" placeholder="Например: продай Жанибек 2 iphone по 650">
-    <button onclick="send()">Отправить</button>
+<input id="msg" placeholder="Например: продай Жанибек 2 iphone по 650">
+<button onclick="send()">Отправить</button>
 
-    <pre id="response"></pre>
+<pre id="response"></pre>
 
-    <script>
+<script>
 
-    async function send(){
+async function send(){
 
-        let text = document.getElementById("msg").value
+let text = document.getElementById("msg").value
 
-        let r = await fetch("/ai",{
-            method:"POST",
-            headers:{
-                "Content-Type":"application/json"
-            },
-            body:JSON.stringify({
-                text:text
-            })
-        })
+let r = await fetch("/ai",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+text:text
+})
+})
 
-        let data = await r.json()
+let data = await r.json()
 
-        document.getElementById("response").innerText =
-        JSON.stringify(data,null,2)
+document.getElementById("response").innerText =
+JSON.stringify(data,null,2)
 
-    }
+}
 
-    </script>
+</script>
 
-    </body>
-    </html>
-    """
+</body>
+</html>
+"""
