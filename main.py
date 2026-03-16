@@ -5,7 +5,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from openai import OpenAI
 import os
-import json
+import re
 
 app = FastAPI()
 
@@ -20,22 +20,6 @@ ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
 
 # ===============================
-# GET SALES
-# ===============================
-
-def get_sales():
-
-    url = ODATA_URL + "Document_РеализацияТоваровУслуг?$format=json"
-
-    response = requests.get(
-        url,
-        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
-    )
-
-    return response.json()
-
-
-# ===============================
 # FIND CUSTOMER
 # ===============================
 
@@ -47,9 +31,6 @@ def find_customer(name):
         url,
         auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
     )
-
-    if response.status_code != 200:
-        return None
 
     data = response.json()
 
@@ -92,9 +73,6 @@ def find_product(name):
         url,
         auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
     )
-
-    if response.status_code != 200:
-        return None
 
     data = response.json()
 
@@ -144,74 +122,34 @@ def create_sale(customer, product, qty, price):
 
 
 # ===============================
-# AI TOOLS
+# PARSE SALE REQUEST
 # ===============================
 
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "find_customer",
-            "description": "Найти клиента",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"}
-                },
-                "required": ["name"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "create_customer",
-            "description": "Создать клиента",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"}
-                },
-                "required": ["name"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_product",
-            "description": "Найти товар",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"}
-                },
-                "required": ["name"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "create_sale",
-            "description": "Создать реализацию",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "customer": {"type": "string"},
-                    "product": {"type": "string"},
-                    "qty": {"type": "number"},
-                    "price": {"type": "number"}
-                },
-                "required": ["customer","product","qty","price"]
-            }
-        }
-    }
-]
+def parse_sale(text):
+
+    customer = None
+    product = None
+    qty = 1
+    price = 0
+
+    m = re.search(r"продай\s+(\w+)", text)
+    if m:
+        customer = m.group(1)
+
+    m = re.search(r"(\d+)\s+(\w+)", text)
+    if m:
+        qty = int(m.group(1))
+        product = m.group(2)
+
+    m = re.search(r"по\s+(\d+)", text)
+    if m:
+        price = int(m.group(1))
+
+    return customer, product, qty, price
 
 
 # ===============================
-# AI REQUEST MODEL
+# AI REQUEST
 # ===============================
 
 class AIRequest(BaseModel):
@@ -219,67 +157,34 @@ class AIRequest(BaseModel):
 
 
 # ===============================
-# AI AGENT
+# AI CHAT
 # ===============================
 
 @app.post("/ai")
 def ai_chat(req: AIRequest):
 
-    text = req.text
+    text = req.text.lower()
+
+    if "продай" in text or "реализац" in text:
+
+        customer, product, qty, price = parse_sale(text)
+
+        if not customer or not product:
+            return {"answer": "Не удалось распознать клиента или товар"}
+
+        result = create_sale(customer, product, qty, price)
+
+        return {"answer": result}
 
     completion = client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
-            {
-                "role": "system",
-                "content": """
-Ты AI агент для управления системой 1С.
-
-Если пользователь просит:
-- создать реализацию
-- продать товар
-- сделать продажу
-
-ты должен вызвать функцию create_sale.
-
-Параметры:
-
-customer — имя клиента  
-product — товар  
-qty — количество  
-price — цена
-"""
-            },
+            {"role": "system", "content": "Ты помощник по анализу бизнеса"},
             {"role": "user", "content": text}
-        ],
-        tools=TOOLS,
-        tool_choice="auto"
+        ]
     )
 
-    message = completion.choices[0].message
-
-    if message.tool_calls:
-
-        tool = message.tool_calls[0]
-
-        name = tool.function.name
-        args = json.loads(tool.function.arguments)
-
-        if name == "find_customer":
-            result = find_customer(**args)
-
-        elif name == "create_customer":
-            result = create_customer(**args)
-
-        elif name == "find_product":
-            result = find_product(**args)
-
-        elif name == "create_sale":
-            result = create_sale(**args)
-
-        return {"answer": result}
-
-    return {"answer": message.content}
+    return {"answer": completion.choices[0].message.content}
 
 
 # ===============================
