@@ -12,7 +12,7 @@ app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ===============================
-# 1C ODATA SETTINGS
+# 1C SETTINGS
 # ===============================
 
 ODATA_URL = "https://1cfresh.kz/a/ea8/239226/odata/standard.odata/"
@@ -20,7 +20,7 @@ ODATA_USER = "odata.user"
 ODATA_PASS = "Nji9ol.*"
 
 # ===============================
-# GET SALES
+# SALES
 # ===============================
 
 def get_sales():
@@ -60,6 +60,27 @@ def find_customer(name):
 
 
 # ===============================
+# CREATE CUSTOMER
+# ===============================
+
+def create_customer(name):
+
+    url = ODATA_URL + "Catalog_Контрагенты?$format=json"
+
+    payload = {
+        "Description": name
+    }
+
+    response = requests.post(
+        url,
+        json=payload,
+        auth=HTTPBasicAuth(ODATA_USER, ODATA_PASS)
+    )
+
+    return response.json()
+
+
+# ===============================
 # FIND PRODUCT
 # ===============================
 
@@ -90,10 +111,12 @@ def find_product(name):
 def create_sale(customer, product, qty, price):
 
     customer_id = find_customer(customer)
-    product_id = find_product(product)
 
     if not customer_id:
-        return {"error": f"Клиент {customer} не найден"}
+        create_customer(customer)
+        customer_id = find_customer(customer)
+
+    product_id = find_product(product)
 
     if not product_id:
         return {"error": f"Товар {product} не найден"}
@@ -129,7 +152,21 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "find_customer",
-            "description": "Найти контрагента",
+            "description": "Найти клиента",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"}
+                },
+                "required": ["name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_customer",
+            "description": "Создать клиента",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -174,7 +211,7 @@ TOOLS = [
 
 
 # ===============================
-# AI REQUEST MODEL
+# AI REQUEST
 # ===============================
 
 class AIRequest(BaseModel):
@@ -211,6 +248,9 @@ def ai_chat(req: AIRequest):
 
         if name == "find_customer":
             result = find_customer(**args)
+
+        elif name == "create_customer":
+            result = create_customer(**args)
 
         elif name == "find_product":
             result = find_product(**args)
@@ -252,7 +292,7 @@ def test():
 
 
 # ===============================
-# WEB INTERFACE
+# WEB UI
 # ===============================
 
 @app.get("/", response_class=HTMLResponse)
@@ -272,7 +312,7 @@ def home():
 
     <h1>AI Assistant 1C</h1>
 
-    <input id="msg" placeholder="Например: создай реализацию">
+    <input id="msg" placeholder="Например: продай Жанибек 2 iphone по 650">
     <button onclick="send()">Отправить</button>
 
     <pre id="response"></pre>
